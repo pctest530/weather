@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>口湖鄉 36 小時天氣</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    body { background: #eef7ff; }
+    .weather-box { background: #fff; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+    .stage { font-size: 1.1rem; margin-bottom: 10px; }
+    #map { height: 300px; margin-bottom: 20px; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container mt-4 mb-4">
+    <h3 class="mb-3">📍 口湖鄉 36 小時天氣（資料由交通部中央氣象署）</h3>
+    <div id="map"></div>
+    <div id="weather"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    // 初始化地圖
+    const map = L.map('map').setView([23.6388, 120.1985], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    L.marker([23.6388, 120.1985]).addTo(map).bindPopup('📍 口湖鄉').openPopup();
+
+    // 天氣圖示對應
+    const iconMap = {
+      '晴': '☀️', '多雲': '⛅', '陰': '☁️',
+      '小雨': '🌧️','陣雨':'🌦️','雷陣雨':'⛈️',
+      '雨':'🌧️','短暫陣雨':'🌦️','局部雨':'🌦️',
+      '雷':'⚡'
+    };
+
+    const apiKey = 'CWA-FA9ADF96-A21B-4D5D-9E9D-839DBF75AF71';
+    const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${apiKey}&locationName=雲林縣`;
+
+    fetch(url)
+      .then(res=>res.json())
+      .then(json=> {
+        const loc = json.records.location[0];
+        const t = loc.weatherElement.find(e=>e.elementName=='Wx').time;
+        const pop = loc.weatherElement.find(e=>e.elementName=='PoP').time;
+        const minT = loc.weatherElement.find(e=>e.elementName=='MinT').time;
+        const maxT = loc.weatherElement.find(e=>e.elementName=='MaxT').time;
+
+        const labels = ['今早', '今晚', '明早'];
+        const weatherDiv = document.getElementById('weather');
+        let html = '';
+
+        for (let i = 0; i < 3; i++) {
+          const w = t[i].parameter.parameterName;
+          const p = pop[i].parameter.parameterName;
+          const lT = minT[i].parameter.parameterName;
+          const hT = maxT[i].parameter.parameterName;
+          const icon = Object.keys(iconMap).find(k=>w.includes(k)) ? iconMap[Object.keys(iconMap).find(k=>w.includes(k))] : '❓';
+
+          const st = t[i].startTime.slice(5,16).replace(' ',' ').split(' ')[0];
+          const et = t[i].endTime.slice(5,16).split(' ')[1];
+          html += `
+            <div class="weather-box">
+              <div class="stage"><strong>${labels[i]} (${st}~${et})</strong> ${icon}</div>
+              <div>天氣：${w}</div>
+              <div>降雨機率：${p}%</div>
+              <div>氣溫範圍：${lT}°C ~ ${hT}°C</div>
+            </div>`;
+        }
+
+        weatherDiv.innerHTML = html;
+      })
+      .catch(e=>{
+        document.getElementById('weather').innerHTML = '<p class="text-danger">載入失敗，請稍後再試。</p>';
+        console.error(e);
+      });
+  </script>
+</body>
+</html>

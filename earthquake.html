@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>📡 地震速報</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+  .item { background: white; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1);}
+  .title { font-weight: bold; color: #d9534f; }
+  a { text-decoration: none; color: #337ab7; }
+</style>
+</head>
+<body>
+<h1>📡 中央氣象局地震速報</h1>
+<div id="list">資料載入中...</div>
+
+<script>
+  const apiKey = "CWA-FA9ADF96-A21B-4D5D-9E9D-839DBF75AF71";
+  const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization=${apiKey}&limit=5`;
+
+  fetch(url)
+    .then(res => res.json())
+    .then(data => {
+      const eqs = data.records?.Earthquake;
+      if (!eqs || eqs.length === 0) {
+        document.getElementById('list').innerText = "目前沒有地震資料";
+        return;
+      }
+
+      let html = "";
+      eqs.forEach(eq => {
+        const info = eq.EarthquakeInfo || {};
+        const loc = info.Epicenter?.Location || "未知地點";
+        const mag = info.EarthquakeMagnitude?.MagnitudeValue ?? "未知";
+        const depth = info.FocalDepth ?? "未知";
+        const timeStr = info.OriginTime || "";
+        let time = "未知時間";
+        if(timeStr) {
+          const d = new Date(timeStr);
+          if(!isNaN(d)) time = d.toLocaleString();
+        }
+
+        html += `<div class="item">
+          <div><span class="title">震央：</span>${loc}</div>
+          <div>🕒 時間：${time}</div>
+          <div>📏 規模：${mag}　💧 深度：${depth} 公里</div>
+          <div><a href="${eq.Web}" target="_blank" rel="noopener">詳細報告連結</a></div>
+        </div>`;
+      });
+
+      document.getElementById('list').innerHTML = html;
+    })
+    .catch(e => {
+      document.getElementById('list').innerText = "❌ 載入資料失敗，請稍後再試";
+      console.error(e);
+    });
+</script>
+</body>
+</html>

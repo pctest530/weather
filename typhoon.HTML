@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>🌀 氣象局颱風資料（收合預測）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: "Microsoft JhengHei", sans-serif;
+      background: #eef6ff;
+      padding: 2em;
+      color: #222;
+    }
+    h1 {
+      color: #0066cc;
+    }
+    .typhoon-block {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 1em;
+      margin-bottom: 2em;
+    }
+    pre {
+      background: #f9f9f9;
+      padding: 1em;
+      border-radius: 6px;
+      white-space: pre-wrap;
+    }
+    .update-time {
+      font-size: 0.9em;
+      color: #666;
+      margin-bottom: 1em;
+    }
+    summary {
+      font-size: 1.1em;
+      font-weight: bold;
+      cursor: pointer;
+      color: #0077cc;
+      margin-top: 1em;
+    }
+    details[open] summary::after {
+      content: " 🔽";
+    }
+    details summary::after {
+      content: " ▶";
+    }
+    .forecast-content {
+      background: #f4f8fc;
+      padding: 0.5em 1em;
+      border-left: 4px solid #0077cc;
+      margin-top: 0.5em;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌀 目前颱風資訊(資料由氣象署)</h1>
+  <div class="update-time" id="updateTime">資料載入中...</div>
+  <div id="output">資料載入中...</div>
+
+  <script>
+    const apiKey = "CWA-FA9ADF96-A21B-4D5D-9E9D-839DBF75AF71";
+    const url = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005?Authorization=${apiKey}`;
+
+    fetch(url)
+      .then((res) => res.json())
+      .then((data) => {
+        const cyclones = data.records?.tropicalCyclones?.tropicalCyclone || [];
+        const output = document.getElementById("output");
+        const updateEl = document.getElementById("updateTime");
+        output.innerHTML = "";
+
+        if (cyclones.length === 0) {
+          output.innerText = "📭 目前無活動颱風";
+          updateEl.innerText = "";
+          return;
+        }
+
+        const latestFixTime = cyclones[0].analysisData?.fix?.[0]?.fixTime || "";
+        if (latestFixTime) {
+          const d = new Date(latestFixTime);
+          updateEl.innerText = `📅 資料更新時間：${d.toLocaleString("zh-TW")}`;
+        }
+
+        cyclones.forEach((cyclone, idx) => {
+          const name = cyclone.cwaTyphoonName || cyclone.typhoonName || "未命名";
+          const analysis = cyclone.analysisData?.fix?.[0];
+          const forecastList = cyclone.forecastData?.fix || [];
+
+          const block = document.createElement("div");
+          block.className = "typhoon-block";
+
+          let content = `🌪️ 第 ${idx + 1} 號颱風：${name}\n\n`;
+
+          if (analysis) {
+            content += `🕒 最新分析時間：${analysis.fixTime}\n`;
+            content += `📍 座標：${analysis.coordinate}\n`;
+            content += `💨 最大風速：${analysis.maxWindSpeed} m/s\n`;
+            content += `🎯 方向：${analysis.movingDirection}\n`;
+            content += `🧭 速度：${analysis.movingSpeed} km/h\n`;
+            content += `🎈 中心氣壓：${analysis.pressure} hPa\n`;
+            content += `🌀 陣風：${analysis.maxGustSpeed} m/s\n`;
+            const movement = analysis.movingPrediction?.find(p => p.lang === "zh-hant");
+            if (movement) content += `📡 移動描述：${movement.value}\n`;
+            content += `\n`;
+          }
+
+          const pre = document.createElement("pre");
+          pre.innerText = content;
+          block.appendChild(pre);
+
+          // 建立可收合預測路徑區塊
+          if (forecastList.length > 0) {
+            const details = document.createElement("details");
+            const summary = document.createElement("summary");
+            summary.textContent = "預測路徑（點我展開 / 收合）";
+            details.appendChild(summary);
+
+            const forecastDiv = document.createElement("div");
+            forecastDiv.className = "forecast-content";
+
+            forecastList.forEach(f => {
+              let fLine = `⏱ ${f.tau} 小時後 → 座標：${f.coordinate}、風速：${f.maxWindSpeed} m/s、氣壓：${f.pressure} hPa、方向：${f.movingDirection}、速度：${f.movingSpeed} km/h\n`;
+              if (f.radiusOf70PercentProbability) {
+                fLine += `　　📍 70% 機率半徑：${f.radiusOf70PercentProbability} km\n`;
+              }
+              if (f.circleOf15Ms?.radius) {
+                fLine += `　　🌬 15m/s 風速半徑：${f.circleOf15Ms.radius} km\n`;
+              }
+              const state = f.stateTransfers?.find(p => p.lang === "zh-hant");
+              if (state) {
+                fLine += `　　🧾 預測狀態：${state.value}\n`;
+              }
+              forecastDiv.appendChild(document.createTextNode(fLine));
+              forecastDiv.appendChild(document.createElement("br"));
+            });
+
+            details.appendChild(forecastDiv);
+            block.appendChild(details);
+          }
+
+          output.appendChild(block);
+        });
+      })
+      .catch((err) => {
+        document.getElementById("output").innerText = "❌ 載入錯誤：" + err.message;
+        console.error(err);
+      });
+  </script>
+</body>
+</html>
