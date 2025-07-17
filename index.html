@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>天氣・地震・颱風資訊總覽</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #eef7ff; padding: 2em; }
+    .weather-box, .item, .typhoon-block {
+      background: #fff; padding: 15px; border-radius: 10px; margin-bottom: 20px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.05);
+    }
+    .btn-group { margin-bottom: 20px; }
+    .stage { font-size: 1.1rem; margin-bottom: 10px; }
+    .forecast-content {
+      background: #f4f8fc; padding: 0.5em 1em; border-left: 4px solid #0077cc;
+      margin-top: 0.5em; border-radius: 4px;
+    }
+    pre { background: #f9f9f9; padding: 1em; border-radius: 6px; white-space: pre-wrap; }
+    summary { font-weight: bold; cursor: pointer; color: #0077cc; margin-top: 1em; }
+    details[open] summary::after { content: " 🔽"; }
+    details summary::after { content: " ▶"; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2 class="mb-3">🌐 雲林口湖地區即時資訊</h2>
+
+    <div class="btn-group mb-4">
+      <button class="btn btn-primary" onclick="showTab('weather')">📍 天氣預報</button>
+      <button class="btn btn-danger" onclick="showTab('earthquake')">📡 地震速報</button>
+      <button class="btn btn-info" onclick="showTab('typhoon')">🌀 颱風資訊</button>
+    </div>
+
+    <!-- 天氣 -->
+    <div id="weather" class="tab-content">
+      <h4>📍 口湖鄉 36 小時天氣（資料由中央氣象署）</h4>
+      <div id="weatherData">載入中...</div>
+    </div>
+
+    <!-- 地震 -->
+    <div id="earthquake" class="tab-content" style="display:none">
+      <h4>📡 中央氣象局地震速報</h4>
+      <div id="earthquakeData">載入中...</div>
+    </div>
+
+    <!-- 颱風 -->
+    <div id="typhoon" class="tab-content" style="display:none">
+      <h4>🌀 目前颱風資訊</h4>
+      <div id="updateTime">資料載入中...</div>
+      <div id="typhoonData">資料載入中...</div>
+    </div>
+  </div>
+
+  <script>
+    function showTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(div => div.style.display = 'none');
+      document.getElementById(tabId).style.display = 'block';
+    }
+
+    const iconMap = {
+      '晴': '☀️', '多雲': '⛅', '陰': '☁️',
+      '小雨': '🌧️','陣雨':'🌦️','雷陣雨':'⛈️',
+      '雨':'🌧️','短暫陣雨':'🌦️','局部雨':'🌦️','雷':'⚡'
+    };
+
+    const apiKey = 'CWA-FA9ADF96-A21B-4D5D-9E9D-839DBF75AF71';
+
+    // 天氣資料
+    fetch(`https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${apiKey}&locationName=雲林縣`)
+      .then(res => res.json())
+      .then(json => {
+        const loc = json.records.location[0];
+        const t = loc.weatherElement.find(e => e.elementName === 'Wx').time;
+        const pop = loc.weatherElement.find(e => e.elementName === 'PoP').time;
+        const minT = loc.weatherElement.find(e => e.elementName === 'MinT').time;
+        const maxT = loc.weatherElement.find(e => e.elementName === 'MaxT').time;
+        const labels = ['今早', '今晚', '明早'];
+        let html = '';
+
+        for (let i = 0; i < 3; i++) {
+          const w = t[i].parameter.parameterName;
+          const icon = Object.keys(iconMap).find(k => w.includes(k)) ? iconMap[Object.keys(iconMap).find(k => w.includes(k))] : '❓';
+          const p = pop[i].parameter.parameterName;
+          const lT = minT[i].parameter.parameterName;
+          const hT = maxT[i].parameter.parameterName;
+          const st = t[i].startTime.slice(5,16).split(' ')[0];
+          const et = t[i].endTime.slice(5,16).split(' ')[1];
+
+          html += `
+            <div class="weather-box">
+              <div class="stage"><strong>${labels[i]} (${st}~${et})</strong> ${icon}</div>
+              <div>天氣：${w}</div>
+              <div>降雨機率：${p}%</div>
+              <div>氣溫範圍：${lT}°C ~ ${hT}°C</div>
+            </div>`;
+        }
+
+        document.getElementById('weatherData').innerHTML = html;
+      });
+
+    // 地震資料
+    fetch(`https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization=${apiKey}&limit=5`)
+      .then(res => res.json())
+      .then(data => {
+        const eqs = data.records?.Earthquake || [];
+        if (eqs.length === 0) return document.getElementById('earthquakeData').innerText = "目前沒有地震資料";
+        let html = '';
+        eqs.forEach(eq => {
+          const info = eq.EarthquakeInfo || {};
+          const loc = info.Epicenter?.Location || "未知地點";
+          const mag = info.EarthquakeMagnitude?.MagnitudeValue ?? "未知";
+          const depth = info.FocalDepth ?? "未知";
+          const timeStr = new Date(info.OriginTime).toLocaleString();
+
+          html += `<div class="item">
+            <div><strong>震央：</strong>${loc}</div>
+            <div>🕒 時間：${timeStr}</div>
+            <div>📏 規模：${mag}　💧 深度：${depth} 公里</div>
+            <div><a href="${eq.Web}" target="_blank">詳細報告</a></div>
+          </div>`;
+        });
+
+        document.getElementById('earthquakeData').innerHTML = html;
+      });
+
+    // 颱風資料
+    fetch(`https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005?Authorization=${apiKey}`)
+      .then(res => res.json())
+      .then(data => {
+        const cyclones = data.records?.tropicalCyclones?.tropicalCyclone || [];
+        const output = document.getElementById("typhoonData");
+        const updateEl = document.getElementById("updateTime");
+        output.innerHTML = "";
+
+        if (cyclones.length === 0) {
+          output.innerText = "📭 目前無活動颱風";
+          updateEl.innerText = "";
+          return;
+        }
+
+        const latestFixTime = cyclones[0].analysisData?.fix?.[0]?.fixTime || "";
+        if (latestFixTime) updateEl.innerText = `📅 資料更新時間：${new Date(latestFixTime).toLocaleString("zh-TW")}`;
+
+        cyclones.forEach((cyclone, idx) => {
+          const name = cyclone.cwaTyphoonName || cyclone.typhoonName || "未命名";
+          const analysis = cyclone.analysisData?.fix?.[0];
+          const forecastList = cyclone.forecastData?.fix || [];
+
+          const block = document.createElement("div");
+          block.className = "typhoon-block";
+
+          let content = `🌪️ 第 ${idx + 1} 號颱風：${name}\n\n`;
+          if (analysis) {
+            content += `🕒 最新分析時間：${analysis.fixTime}\n`;
+            content += `📍 座標：${analysis.coordinate}\n`;
+            content += `💨 最大風速：${analysis.maxWindSpeed} m/s\n`;
+            content += `🎯 方向：${analysis.movingDirection}\n`;
+            content += `🧭 速度：${analysis.movingSpeed} km/h\n`;
+            content += `🎈 中心氣壓：${analysis.pressure} hPa\n`;
+            content += `🌀 陣風：${analysis.maxGustSpeed} m/s\n`;
+            const movement = analysis.movingPrediction?.find(p => p.lang === "zh-hant");
+            if (movement) content += `📡 移動描述：${movement.value}\n\n`;
+          }
+
+          const pre = document.createElement("pre");
+          pre.innerText = content;
+          block.appendChild(pre);
+
+          if (forecastList.length > 0) {
+            const details = document.createElement("details");
+            const summary = document.createElement("summary");
+            summary.textContent = "預測路徑（點我展開 / 收合）";
+            details.appendChild(summary);
+
+            const forecastDiv = document.createElement("div");
+            forecastDiv.className = "forecast-content";
+
+            forecastList.forEach(f => {
+              let fLine = `⏱ ${f.tau} 小時後 → 座標：${f.coordinate}、風速：${f.maxWindSpeed} m/s、氣壓：${f.pressure} hPa、方向：${f.movingDirection}、速度：${f.movingSpeed} km/h\n`;
+              if (f.radiusOf70PercentProbability) fLine += `📍 70% 機率半徑：${f.radiusOf70PercentProbability} km\n`;
+              if (f.circleOf15Ms?.radius) fLine += `🌬 15m/s 風速半徑：${f.circleOf15Ms.radius} km\n`;
+              const state = f.stateTransfers?.find(p => p.lang === "zh-hant");
+              if (state) fLine += `🧾 預測狀態：${state.value}\n`;
+              forecastDiv.appendChild(document.createTextNode(fLine));
+              forecastDiv.appendChild(document.createElement("br"));
+            });
+
+            details.appendChild(forecastDiv);
+            block.appendChild(details);
+          }
+
+          output.appendChild(block);
+        });
+      });
+  </script>
+</body>
+</html>
