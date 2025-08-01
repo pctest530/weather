@@ -4,8 +4,10 @@
   <meta charset="UTF-8" />
   <title>口湖鄉氣象與常用連結</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
   <style>
     body {
       background: #eef7ff;
@@ -39,10 +41,8 @@
 
   <h1>🌤️ 口湖鄉氣象與常用連結</h1>
 
-  <!-- Accordion for 4 web pages -->
   <div class="accordion mb-4" id="mainAccordion">
 
-    <!-- 口湖鄉 36 小時天氣 -->
     <div class="accordion-item">
       <h2 class="accordion-header" id="headingWeather">
         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseWeather" aria-expanded="false" aria-controls="collapseWeather">
@@ -58,7 +58,6 @@
       </div>
     </div>
 
-    <!-- 目前颱風資訊 -->
     <div class="accordion-item">
       <h2 class="accordion-header" id="headingTyphoon">
         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTyphoon" aria-expanded="false" aria-controls="collapseTyphoon">
@@ -74,7 +73,6 @@
       </div>
     </div>
 
-    <!-- 地震速報 -->
     <div class="accordion-item">
       <h2 class="accordion-header" id="headingEarthquake">
         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEarthquake" aria-expanded="false" aria-controls="collapseEarthquake">
@@ -91,7 +89,6 @@
       </div>
     </div>
 
-    <!-- 口湖鄉潮汐預報 -->
     <div class="accordion-item">
       <h2 class="accordion-header" id="headingTide">
         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTide" aria-expanded="false" aria-controls="collapseTide">
@@ -100,26 +97,27 @@
       </h2>
       <div id="collapseTide" class="accordion-collapse collapse" aria-labelledby="headingTide" data-bs-parent="#mainAccordion">
         <div class="accordion-body bg-white rounded shadow-sm">
-          <p id="loading">資料載入中...</p>
-          <table id="tideTable" class="table table-bordered table-hover" style="display:none;">
-            <thead class="table-primary">
-              <tr>
-                <th>日期</th>
-                <th>潮汐類型</th>
-                <th>時間</th>
-                <th>潮高（公分）</th>
-              </tr>
-            </thead>
-            <tbody id="tideTableBody"></tbody>
-          </table>
-          <button id="toggleBtn" class="btn btn-primary" style="display:none;">顯示更多日期</button>
+          <div id="tide-content">
+            <p id="loading">資料載入中...</p>
+            <table id="tideTable" class="table table-bordered table-hover" style="display:none;">
+              <thead class="table-primary">
+                <tr>
+                  <th>日期</th>
+                  <th>潮汐類型</th>
+                  <th>時間</th>
+                  <th>潮高（公分）</th>
+                </tr>
+              </thead>
+              <tbody id="tideTableBody"></tbody>
+            </table>
+            <button id="toggleBtn" class="btn btn-primary" style="display:none;">顯示更多日期</button>
+          </div>
         </div>
       </div>
     </div>
 
   </div>
 
-  <!-- 8 個常用連結按鈕 -->
   <h3 class="mb-3 text-center">🔗 常用連結</h3>
   <div class="d-grid gap-2 col-12 col-md-6 mx-auto mb-5">
     <a href="https://yliflood.yunlin.gov.tw/cameralist/#" target="_blank" class="btn btn-primary btn-link-custom">韌性防災</a>
@@ -132,293 +130,326 @@
     <a href="https://www.dgpa.gov.tw/typh/daily/nds.html" target="_blank" class="btn btn-primary btn-link-custom">停班課查詢</a>
   </div>
 
-  <!-- Bootstrap JS Bundle (含 Popper) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  <!-- 以下為 4 個網頁功能的 JavaScript -->
-
   <script>
+    // 請將 'your_liff_id_here' 替換為您在 LINE 開發者後台取得的 LIFF ID
+    // 您的 LIFF ID
+    const LIFF_ID = '2007860540-Mj26ZmJR';
+    
+    // 初始化 LIFF
+    window.onload = function() {
+        liff.init({
+            liffId: LIFF_ID
+        }).then(() => {
+            console.log('LIFF init successfully.');
+        }).catch((err) => {
+            console.error("LIFF initialization failed", err);
+        });
+        
+        // 頁面載入時，直接執行原本的 API 呼叫功能
+        loadAllData();
+    };
+
+    // ---------------- 整合 LIFF 後，所有原本的 JavaScript 功能 ----------------
+
     const apiKey = "CWA-FA9ADF96-A21B-4D5D-9E9D-839DBF75AF71";
 
+    async function loadAllData() {
+      // 載入天氣
+      loadWeather();
+      // 載入颱風
+      loadTyphoon();
+      // 載入地震
+      loadEarthquake();
+      // 載入潮汐
+      loadTideForecast();
+    }
+
     // ---------------- 口湖鄉 36 小時天氣 ----------------
-    const weatherDiv = document.getElementById("weather");
-    const iconMap = {
-      '晴': '☀️', '多雲': '⛅', '陰': '☁️',
-      '小雨': '🌧️','陣雨':'🌦️','雷陣雨':'⛈️',
-      '雨':'🌧️','短暫陣雨':'🌦️','局部雨':'🌦️',
-      '雷':'⚡'
-    };
-    fetch(`https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${apiKey}&locationName=雲林縣`)
-      .then(res => res.json())
-      .then(json => {
-        const loc = json.records.location[0];
-        const t = loc.weatherElement.find(e => e.elementName == 'Wx').time;
-        const pop = loc.weatherElement.find(e => e.elementName == 'PoP').time;
-        const minT = loc.weatherElement.find(e => e.elementName == 'MinT').time;
-        const maxT = loc.weatherElement.find(e => e.elementName == 'MaxT').time;
+    function loadWeather() {
+      const weatherDiv = document.getElementById("weather");
+      const iconMap = {
+        '晴': '☀️', '多雲': '⛅', '陰': '☁️',
+        '小雨': '🌧️','陣雨':'🌦️','雷陣雨':'⛈️',
+        '雨':'🌧️','短暫陣雨':'🌦️','局部雨':'🌦️',
+        '雷':'⚡'
+      };
+      fetch(`https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=${apiKey}&locationName=雲林縣`)
+        .then(res => res.json())
+        .then(json => {
+          const loc = json.records.location[0];
+          const t = loc.weatherElement.find(e => e.elementName == 'Wx').time;
+          const pop = loc.weatherElement.find(e => e.elementName == 'PoP').time;
+          const minT = loc.weatherElement.find(e => e.elementName == 'MinT').time;
+          const maxT = loc.weatherElement.find(e => e.elementName == 'MaxT').time;
 
-        const labels = ['今早', '今晚', '明早'];
-        let html = '';
+          const labels = ['今早', '今晚', '明早'];
+          let html = '';
 
-        for (let i = 0; i < 3; i++) {
-          const w = t[i].parameter.parameterName;
-          const p = pop[i].parameter.parameterName;
-          const lT = minT[i].parameter.parameterName;
-          const hT = maxT[i].parameter.parameterName;
-          const icon = Object.keys(iconMap).find(k => w.includes(k)) ? iconMap[Object.keys(iconMap).find(k => w.includes(k))] : '❓';
+          for (let i = 0; i < 3; i++) {
+            const w = t[i].parameter.parameterName;
+            const p = pop[i].parameter.parameterName;
+            const lT = minT[i].parameter.parameterName;
+            const hT = maxT[i].parameter.parameterName;
+            const icon = Object.keys(iconMap).find(k => w.includes(k)) ? iconMap[Object.keys(iconMap).find(k => w.includes(k))] : '❓';
 
-          const st = t[i].startTime.slice(5, 16).replace(' ', ' ').split(' ')[0];
-          const et = t[i].endTime.slice(5, 16).split(' ')[1];
-          html += `
-            <div class="mb-3 p-3 border rounded shadow-sm">
-              <div><strong>${labels[i]} (${st}~${et})</strong> ${icon}</div>
-              <div>天氣：${w}</div>
-              <div>降雨機率：${p}%</div>
-              <div>氣溫範圍：${lT}°C ~ ${hT}°C</div>
-            </div>`;
-        }
-        weatherDiv.innerHTML = html;
-      })
-      .catch(e => {
-        weatherDiv.innerHTML = '<p class="text-danger">載入失敗，請稍後再試。</p>';
-        console.error(e);
-      });
-
+            const st = t[i].startTime.slice(5, 16).replace(' ', ' ').split(' ')[0];
+            const et = t[i].endTime.slice(5, 16).split(' ')[1];
+            html += `
+              <div class="mb-3 p-3 border rounded shadow-sm">
+                <div><strong>${labels[i]} (${st}~${et})</strong> ${icon}</div>
+                <div>天氣：${w}</div>
+                <div>降雨機率：${p}%</div>
+                <div>氣溫範圍：${lT}°C ~ ${hT}°C</div>
+              </div>`;
+          }
+          weatherDiv.innerHTML = html;
+        })
+        .catch(e => {
+          weatherDiv.innerHTML = '<p class="text-danger">載入失敗，請稍後再試。</p>';
+          console.error(e);
+        });
+    }
 
     // ---------------- 目前颱風資訊 ----------------
-    const typhoonOutput = document.getElementById("typhoonOutput");
-    fetch(`https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005?Authorization=${apiKey}`)
-      .then(res => res.json())
-      .then(data => {
-        const cyclones = data.records?.tropicalCyclones?.tropicalCyclone || [];
-        typhoonOutput.innerHTML = "";
+    function loadTyphoon() {
+      const typhoonOutput = document.getElementById("typhoonOutput");
+      fetch(`https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0034-005?Authorization=${apiKey}`)
+        .then(res => res.json())
+        .then(data => {
+          const cyclones = data.records?.tropicalCyclones?.tropicalCyclone || [];
+          typhoonOutput.innerHTML = "";
 
-        if (cyclones.length === 0) {
-          typhoonOutput.innerText = "📭 目前無活動颱風";
-          return;
-        }
-
-        const latestFixTime = cyclones[0].analysisData?.fix?.[0]?.fixTime || "";
-        if (latestFixTime) {
-          const d = new Date(latestFixTime);
-          typhoonOutput.innerText = `📅 資料更新時間：${d.toLocaleString("zh-TW")}\n\n`;
-        }
-
-        cyclones.forEach((cyclone, idx) => {
-          const name = cyclone.cwaTyphoonName || cyclone.typhoonName || "未命名";
-          const analysis = cyclone.analysisData?.fix?.[0];
-          const forecastList = cyclone.forecastData?.fix || [];
-
-          let content = `🌪️ 第 ${idx + 1} 號颱風：${name}\n\n`;
-
-          if (analysis) {
-            content += `🕒 最新分析時間：${analysis.fixTime}\n`;
-            content += `📍 座標：${analysis.coordinate}\n`;
-            content += `💨 最大風速：${analysis.maxWindSpeed} m/s\n`;
-            content += `🎯 方向：${analysis.movingDirection}\n`;
-            content += `🧭 速度：${analysis.movingSpeed} km/h\n`;
-            content += `🎈 中心氣壓：${analysis.pressure} hPa\n`;
-            content += `🌀 陣風：${analysis.maxGustSpeed} m/s\n`;
-            const movement = analysis.movingPrediction?.find(p => p.lang === "zh-hant");
-            if (movement) content += `📡 移動描述：${movement.value}\n`;
-            content += `\n`;
+          if (cyclones.length === 0) {
+            typhoonOutput.innerText = "📭 目前無活動颱風";
+            return;
           }
 
-          if (forecastList.length > 0) {
-            content += "預測路徑：\n";
-            forecastList.forEach(f => {
-              content += `⏱ ${f.tau} 小時後 → 座標：${f.coordinate}、風速：${f.maxWindSpeed} m/s、氣壓：${f.pressure} hPa、方向：${f.movingDirection}、速度：${f.movingSpeed} km/h\n`;
-              if (f.radiusOf70PercentProbability) {
-                content += `　　📍 70% 機率半徑：${f.radiusOf70PercentProbability} km\n`;
-              }
-              if (f.circleOf15Ms?.radius) {
-                content += `　　🌬 15m/s 風速半徑：${f.circleOf15Ms.radius} km\n`;
-              }
-              const state = f.stateTransfers?.find(p => p.lang === "zh-hant");
-              if (state) {
-                content += `　　🧾 預測狀態：${state.value}\n`;
-              }
-            });
+          const latestFixTime = cyclones[0].analysisData?.fix?.[0]?.fixTime || "";
+          if (latestFixTime) {
+            const d = new Date(latestFixTime);
+            typhoonOutput.innerText = `📅 資料更新時間：${d.toLocaleString("zh-TW")}\n\n`;
           }
 
-          typhoonOutput.innerText += content + "\n\n";
+          cyclones.forEach((cyclone, idx) => {
+            const name = cyclone.cwaTyphoonName || cyclone.typhoonName || "未命名";
+            const analysis = cyclone.analysisData?.fix?.[0];
+            const forecastList = cyclone.forecastData?.fix || [];
+
+            let content = `🌪️ 第 ${idx + 1} 號颱風：${name}\n\n`;
+
+            if (analysis) {
+              content += `🕒 最新分析時間：${analysis.fixTime}\n`;
+              content += `📍 座標：${analysis.coordinate}\n`;
+              content += `💨 最大風速：${analysis.maxWindSpeed} m/s\n`;
+              content += `🎯 方向：${analysis.movingDirection}\n`;
+              content += `🧭 速度：${analysis.movingSpeed} km/h\n`;
+              content += `🎈 中心氣壓：${analysis.pressure} hPa\n`;
+              content += `🌀 陣風：${analysis.maxGustSpeed} m/s\n`;
+              const movement = analysis.movingPrediction?.find(p => p.lang === "zh-hant");
+              if (movement) content += `📡 移動描述：${movement.value}\n`;
+              content += `\n`;
+            }
+
+            if (forecastList.length > 0) {
+              content += "預測路徑：\n";
+              forecastList.forEach(f => {
+                content += `⏱ ${f.tau} 小時後 → 座標：${f.coordinate}、風速：${f.maxWindSpeed} m/s、氣壓：${f.pressure} hPa、方向：${f.movingDirection}、速度：${f.movingSpeed} km/h\n`;
+                if (f.radiusOf70PercentProbability) {
+                  content += `　　📍 70% 機率半徑：${f.radiusOf70PercentProbability} km\n`;
+                }
+                if (f.circleOf15Ms?.radius) {
+                  content += `　　🌬 15m/s 風速半徑：${f.circleOf15Ms.radius} km\n`;
+                }
+                const state = f.stateTransfers?.find(p => p.lang === "zh-hant");
+                if (state) {
+                  content += `　　🧾 預測狀態：${state.value}\n`;
+                }
+              });
+            }
+
+            typhoonOutput.innerText += content + "\n\n";
+          });
+        })
+        .catch(err => {
+          typhoonOutput.innerText = "❌ 載入錯誤：" + err.message;
+          console.error(err);
         });
-      })
-      .catch(err => {
-        typhoonOutput.innerText = "❌ 載入錯誤：" + err.message;
-        console.error(err);
-      });
+    }
 
 
     // ---------------- 中央氣象局地震速報 ----------------
-    const apiEarthquakeMainUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization=${apiKey}&limit=20`;
-    const apiEarthquakeLocalUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0016-001?Authorization=${apiKey}&limit=20`;
+    function loadEarthquake() {
+      const apiEarthquakeMainUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0015-001?Authorization=${apiKey}&limit=20`;
+      const apiEarthquakeLocalUrl = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/E-A0016-001?Authorization=${apiKey}&limit=20`;
 
-    function formatTime(tstr) {
-      const d = new Date(tstr);
-      if (isNaN(d)) return "未知時間";
-      const hours = d.getHours();
-      const ampm = hours < 12 ? "上午" : "下午";
-      const hour12 = hours % 12 || 12;
-      const minutes = d.getMinutes().toString().padStart(2, '0');
-      return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${ampm} ${hour12}:${minutes}`;
-    }
-
-    function renderQuakes(data, targetId, hasLink = false) {
-      let eqs = data.records?.Earthquake;
-      if (!eqs || eqs.length === 0) {
-        document.getElementById(targetId).innerText = "目前沒有資料";
-        return;
+      function formatTime(tstr) {
+        const d = new Date(tstr);
+        if (isNaN(d)) return "未知時間";
+        const hours = d.getHours();
+        const ampm = hours < 12 ? "上午" : "下午";
+        const hour12 = hours % 12 || 12;
+        const minutes = d.getMinutes().toString().padStart(2, '0');
+        return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${ampm} ${hour12}:${minutes}`;
       }
-      eqs.sort((a, b) => {
-        const ta = new Date(a.EarthquakeInfo?.OriginTime || 0);
-        const tb = new Date(b.EarthquakeInfo?.OriginTime || 0);
-        return tb - ta;
-      });
 
-      let html = "";
-      eqs.slice(0, 5).forEach(eq => {
-        const info = eq.EarthquakeInfo || {};
-        const loc = info.Epicenter?.Location || "未知地點";
-        const mag = info.EarthquakeMagnitude?.MagnitudeValue ?? "未知";
-        const depth = info.FocalDepth ?? "未知";
-        const time = formatTime(info.OriginTime || "");
-
-        html += `<div class="mb-3 p-3 border rounded shadow-sm bg-light">
-          <div><strong>震央：</strong>${loc}</div>
-          <div>🕒 時間：${time}</div>
-          <div>📏 規模：${mag}　💧 深度：${depth} 公里</div>`;
-        if (hasLink && eq.Web) {
-          html += `<div><a href="${eq.Web}" target="_blank" rel="noopener">詳細報告連結</a></div>`;
-        }
-        html += `</div>`;
-      });
-
-      document.getElementById(targetId).innerHTML = html;
-    }
-
-    fetch(apiEarthquakeMainUrl)
-      .then(res => res.json())
-      .then(data => renderQuakes(data, "main-list", true))
-      .catch(e => {
-        document.getElementById('main-list').innerText = "❌ 載入失敗";
-        console.error(e);
-      });
-
-    fetch(apiEarthquakeLocalUrl)
-      .then(res => res.json())
-      .then(data => renderQuakes(data, "local-list"))
-      .catch(e => {
-        document.getElementById('local-list').innerText = "❌ 載入失敗";
-        console.error(e);
-      });
-
-
-    // ---------------- 口湖鄉潮汐預報 ----------------
-    const API_TIDE_URL = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-A0021-001?Authorization=${apiKey}`;
-    const LOCATION_ID = "10009190"; // 口湖鄉
-
-    let allDailyData = [];
-    let showingAll = false;
-
-    function formatTimeTide(dateTimeStr) {
-      const d = new Date(dateTimeStr);
-      let hours = d.getHours();
-      const minutes = d.getMinutes().toString().padStart(2, '0');
-      const period = hours < 12 ? '上午' : '下午';
-      hours = hours % 12 || 12;
-      return `${period} ${hours.toString().padStart(2, '0')}:${minutes}`;
-    }
-
-    function getTodayString() {
-      const now = new Date();
-      const yyyy = now.getFullYear();
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const dd = String(now.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
-
-    function renderTable(dailyData) {
-      const tbody = document.getElementById("tideTableBody");
-      tbody.innerHTML = "";
-      dailyData.forEach(day => {
-        day.Time.forEach(tide => {
-          const date = day.Date;
-          let type = tide.Tide === "乾潮" ? "退潮" : tide.Tide;
-          const time = formatTimeTide(tide.DateTime);
-          const height = tide.TideHeights?.AboveChartDatum ?? "-";
-
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${date}</td>
-            <td>${type}</td>
-            <td>${time}</td>
-            <td>${height}</td>
-          `;
-          tbody.appendChild(tr);
-        });
-      });
-    }
-
-    async function loadTideForecast() {
-      try {
-        const res = await fetch(API_TIDE_URL);
-        const json = await res.json();
-
-        if (json.success !== "true" && json.Success !== "true") {
-          throw new Error("API 回傳失敗");
-        }
-
-        const forecasts = json.records.TideForecasts;
-        const locationData = forecasts.find(loc => loc.Location.LocationId === LOCATION_ID);
-
-        if (!locationData) {
-          document.getElementById('loading').innerText = "找不到口湖鄉潮汐預報資料";
+      function renderQuakes(data, targetId, hasLink = false) {
+        let eqs = data.records?.Earthquake;
+        if (!eqs || eqs.length === 0) {
+          document.getElementById(targetId).innerText = "目前沒有資料";
           return;
         }
+        eqs.sort((a, b) => {
+          const ta = new Date(a.EarthquakeInfo?.OriginTime || 0);
+          const tb = new Date(b.EarthquakeInfo?.OriginTime || 0);
+          return tb - ta;
+        });
 
-        allDailyData = locationData.Location.TimePeriods.Daily;
+        let html = "";
+        eqs.slice(0, 5).forEach(eq => {
+          const info = eq.EarthquakeInfo || {};
+          const loc = info.Epicenter?.Location || "未知地點";
+          const mag = info.EarthquakeMagnitude?.MagnitudeValue ?? "未知";
+          const depth = info.FocalDepth ?? "未知";
+          const time = formatTime(info.OriginTime || "");
 
-        // 日期排序由近到遠
-        allDailyData.sort((a, b) => a.Date.localeCompare(b.Date));
+          html += `<div class="mb-3 p-3 border rounded shadow-sm bg-light">
+            <div><strong>震央：</strong>${loc}</div>
+            <div>🕒 時間：${time}</div>
+            <div>📏 規模：${mag}　💧 深度：${depth} 公里</div>`;
+          if (hasLink && eq.Web) {
+            html += `<div><a href="${eq.Web}" target="_blank" rel="noopener">詳細報告連結</a></div>`;
+          }
+          html += `</div>`;
+        });
 
-        const todayStr = getTodayString();
-        const todayData = allDailyData.filter(d => d.Date === todayStr);
-
-        if (todayData.length === 0) {
-          document.getElementById('loading').innerText = "今日無潮汐資料";
-        } else {
-          renderTable(todayData);
-          document.getElementById('loading').style.display = "none";
-          document.getElementById('tideTable').style.display = "table";
-          document.getElementById('toggleBtn').style.display = "block";
-        }
-
-      } catch (error) {
-        document.getElementById('loading').innerText = "❌ 資料載入失敗，請稍後再試";
-        console.error(error);
+        document.getElementById(targetId).innerHTML = html;
       }
+
+      fetch(apiEarthquakeMainUrl)
+        .then(res => res.json())
+        .then(data => renderQuakes(data, "main-list", true))
+        .catch(e => {
+          document.getElementById('main-list').innerText = "❌ 載入失敗";
+          console.error(e);
+        });
+
+      fetch(apiEarthquakeLocalUrl)
+        .then(res => res.json())
+        .then(data => renderQuakes(data, "local-list"))
+        .catch(e => {
+          document.getElementById('local-list').innerText = "❌ 載入失敗";
+          console.error(e);
+        });
     }
 
-    document.getElementById("toggleBtn").addEventListener("click", () => {
-      const btn = document.getElementById("toggleBtn");
-      if (showingAll) {
-        // 顯示當天
-        const todayStr = getTodayString();
-        const todayData = allDailyData.filter(d => d.Date === todayStr);
-        renderTable(todayData);
-        btn.textContent = "顯示更多日期";
-        showingAll = false;
-      } else {
-        // 顯示全部
-        renderTable(allDailyData);
-        btn.textContent = "只顯示今日";
-        showingAll = true;
+    // ---------------- 口湖鄉潮汐預報 ----------------
+    function loadTideForecast() {
+      const API_TIDE_URL = `https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-A0021-001?Authorization=${apiKey}`;
+      const LOCATION_ID = "10009190"; // 口湖鄉
+
+      let allDailyData = [];
+      let showingAll = false;
+
+      function formatTimeTide(dateTimeStr) {
+        const d = new Date(dateTimeStr);
+        let hours = d.getHours();
+        const minutes = d.getMinutes().toString().padStart(2, '0');
+        const period = hours < 12 ? '上午' : '下午';
+        hours = hours % 12 || 12;
+        return `${period} ${hours.toString().padStart(2, '0')}:${minutes}`;
       }
-    });
 
-    loadTideForecast();
+      function getTodayString() {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      function renderTable(dailyData) {
+        const tbody = document.getElementById("tideTableBody");
+        tbody.innerHTML = "";
+        dailyData.forEach(day => {
+          day.Time.forEach(tide => {
+            const date = day.Date;
+            let type = tide.Tide === "乾潮" ? "退潮" : tide.Tide;
+            const time = formatTimeTide(tide.DateTime);
+            const height = tide.TideHeights?.AboveChartDatum ?? "-";
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${date}</td>
+              <td>${type}</td>
+              <td>${time}</td>
+              <td>${height}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        });
+      }
+
+      async function loadTideData() {
+        try {
+          const res = await fetch(API_TIDE_URL);
+          const json = await res.json();
+
+          if (json.success !== "true" && json.Success !== "true") {
+            throw new Error("API 回傳失敗");
+          }
+
+          const forecasts = json.records.TideForecasts;
+          const locationData = forecasts.find(loc => loc.Location.LocationId === LOCATION_ID);
+
+          if (!locationData) {
+            document.getElementById('loading').innerText = "找不到口湖鄉潮汐預報資料";
+            return;
+          }
+
+          allDailyData = locationData.Location.TimePeriods.Daily;
+
+          // 日期排序由近到遠
+          allDailyData.sort((a, b) => a.Date.localeCompare(b.Date));
+
+          const todayStr = getTodayString();
+          const todayData = allDailyData.filter(d => d.Date === todayStr);
+
+          if (todayData.length === 0) {
+            document.getElementById('loading').innerText = "今日無潮汐資料";
+          } else {
+            renderTable(todayData);
+            document.getElementById('loading').style.display = "none";
+            document.getElementById('tideTable').style.display = "table";
+            document.getElementById('toggleBtn').style.display = "block";
+          }
+
+        } catch (error) {
+          document.getElementById('loading').innerText = "❌ 資料載入失敗，請稍後再試";
+          console.error(error);
+        }
+      }
+
+      document.getElementById("toggleBtn").addEventListener("click", () => {
+        const btn = document.getElementById("toggleBtn");
+        if (showingAll) {
+          // 顯示當天
+          const todayStr = getTodayString();
+          const todayData = allDailyData.filter(d => d.Date === todayStr);
+          renderTable(todayData);
+          btn.textContent = "顯示更多日期";
+          showingAll = false;
+        } else {
+          // 顯示全部
+          renderTable(allDailyData);
+          btn.textContent = "只顯示今日";
+          showingAll = true;
+        }
+      });
+
+      loadTideData();
+    }
   </script>
-
 </body>
 </html>
